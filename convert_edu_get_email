@@ -11,12 +11,12 @@ from email.utils import formatdate
 from email import encoders
 import re
 
-
 edu_data_path = os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'rnEducation.xls')
 hr_data_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'hrReport.xls')
 test_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'testData.xlsx')
 tempPat =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'tempFile.xlsx')
 master_alias_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'MasterAlias.xlsx')
+edu_job_codes_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'jobCodesMasterList.xlsx')
 
 #edu_data_path = os.path.join('C:\\', 'Users', 'Ethan', 'OneDrive', 'Desktop', 'testData', 'rnEducation.xls')
 #hr_data_path =os.path.join('C:\\', 'Users', 'Ethan', 'OneDrive', 'Desktop', 'testData', 'hrReport.xls')
@@ -77,7 +77,6 @@ def inProgressCorrection(row):
         val = 1
     return val;
 
-
 def send_mail(send_from,send_to,subject,text,files,server,port,username='',password='',isTls=True):
     msg = MIMEMultipart()
     msg['From'] = send_from
@@ -101,86 +100,127 @@ def send_mail(send_from,send_to,subject,text,files,server,port,username='',passw
     smtp.sendmail(send_from, send_to, msg.as_string())
     smtp.quit()
 
-eduData = pd.read_excel(edu_data_path)
-hrData = pd.read_excel(hr_data_path)
+edu_data = pd.read_excel(edu_data_path)
+hr_data = pd.read_excel(hr_data_path)
+edu_job_codes = pd.read_excel(edu_job_codes_path, 'RN_Education')
+
 
 #Need to change EEID to ID in HR report
 
-combData = reduce(lambda x,y: pd.merge(x,y, on='ID', how='left'), [hrData, eduData])
+# combine the education data and HR data
+edu_hr_comb = reduce(lambda x,y: pd.merge(x,y, on='ID', how='left'), [hr_data, edu_data])
+# Reduce the set of columns to those columns that are usefule
+edu_hr_comb = edu_hr_comb[['Cost Center', 'ID', 'Unit', 'Name_x', 'JOB', 'Title',  'Description', 'Degree Category']]
 
 
-combData = combData[['Cost Center', 'ID', 'Unit', 'Name_x', 'Title',  'Description', 'Degree Category']]
-combData = combData.dropna(subset=['Description'])
-combData.to_excel(test_path)
+exclusion_list = edu_job_codes['excl_job_codes'].tolist()
+#job_codes_list = edu_hr_comb['JOB'].tolist()
+#list(set(job_codes_list))
 
-combData['multInProgr'] = combData.apply (lambda row: inProgressCorrection(row), axis=1)
-combData.to_excel(test_path)
+for i in exclusion_list:
+    print('the job code is: ')
+    print(i)
+    edu_hr_comb = edu_hr_comb[edu_hr_comb.JOB != i]
 
-combData[['Title', 'Cost Center', 'ID']] = combData[['Title', 'Cost Center', 'ID']].astype(str)
-combData.to_excel(test_path)
-#combData = combData[combData['Title'].str.contains('Supv')]
-combData = combData[~combData['Title'].str.contains('LPN')]
-combData.to_excel(test_path)
-combData['eduScore']= combData['Description'].map(eduDict)
-combData.to_excel(test_path)
+#edu_hr_comb = edu_hr_comb.dropna(subset=['Description'])
 
-combData['eduScore'] = combData['eduScore'] * combData['multInProgr']
-combData.to_excel(test_path)
+edu_hr_comb.to_excel(test_path)
+# correct for "in progress status" by adding a column of 0 for in progress and 1 for all else
+edu_hr_comb['multInProgr'] = edu_hr_comb.apply (lambda row: inProgressCorrection(row), axis=1)
+edu_hr_comb.to_excel(test_path)
+# change the title cost center and ID to string to protect them from the sum function later truncated
+edu_hr_comb[['Title', 'Cost Center', 'ID']] = edu_hr_comb[['Title', 'Cost Center', 'ID']].astype(str)
+edu_hr_comb.to_excel(test_path)
 
-#pivotData = pd.pivot_table(combData, values='eduScore', index =['Name_x', 'Unit', 'Title'], aggfunc=np.sum)
+#edu_hr_comb = edu_hr_comb[~edu_hr_comb['Title'].str.contains('LPN')]
+#edu_hr_comb.to_excel(test_path)
+# convert the calendar to the integer (bit mask) based on the eduDictionary - this is the eduScore
+edu_hr_comb['eduScore']= edu_hr_comb['Description'].map(eduDict)
+edu_hr_comb.to_excel(test_path)
 
-combData2= combData.groupby(['Name_x', 'Title', 'Cost Center', 'Unit', 'ID']).sum().reset_index()
+# make any null value in the eduScore column a zero so when it is multiplied by the degree in progress indicator
+#   the product will be zero (indicating no degree was specified.
+edu_hr_comb['eduScore'] = edu_hr_comb['eduScore'].fillna(0)
+edu_hr_comb.to_excel(test_path)
 
-#pivotData = pd.pivot_table(combData, values='eduScore', index=['Unit', 'Name_x', 'Cost Center',  'Title'], aggfunc=np.sum)
+# multiply the eduScore and multInProg values to get the adjustment for degrees in progress
+edu_hr_comb['eduScore'] = edu_hr_comb['eduScore'] * edu_hr_comb['multInProgr']
+edu_hr_comb.to_excel(test_path)
+
+# group by rows that will be duplicate so the eduScore integer (bit mask) can be summed
+edu_hr_comb2= edu_hr_comb.groupby(['Name_x', 'Title', 'Cost Center', 'Unit', 'ID', 'JOB']).sum().reset_index()
+edu_hr_comb2.to_excel(test_path)
+
+
+#edu_hr_comb2['eduScore'] = edu_hr_comb2['eduScore'].astype(int)
+edu_hr_comb2['corrEdu'] = edu_hr_comb2.apply (lambda row: intToDegree(row), axis=1)
+edu_hr_comb2.to_excel(test_path)
+
+# drop the columns the eduScore and multInProgress columns that are no longer needed - this becomes a duplicate 
+# process a few lines later
+#edu_hr_comb2 = edu_hr_comb2.drop(columns=['eduScore', 'multInProgr'])
+#edu_hr_comb2.to_excel(test_path)
+
+# *** Testing, can change variable name when ready for prod
+test = pd.read_excel(test_path)
+# Reduce the dataframe to columns that are needed now and re-order to make more readable
+test = test[['Cost Center', 'Unit', 'Name_x', 'Title', 'JOB', 'corrEdu',]]
+# make cost center a string so the left 4 digits can be truncated
+test['Cost Center'] = test['Cost Center'].astype(str)
+# truncate the cost center to the common 5-digit cost center
+test['Cost Center'] = test['Cost Center'].str[4:]
+test.to_excel(test_path)
+
+# convert cost center back to integer so it can be used to match a list of integer versions of cost center
+test['Cost Center'] = test['Cost Center'].astype(int)
+test.to_excel(test_path)
+
+# main alias sheet from masterAliasRecord to a dataframe
+alias_df = pd.read_excel(master_alias_path, 'MainAlias')
+# limit alias dataframe to cost center and UD Email
+alias_df = alias_df[['Cost_Center', 'UD_Email']]
+# convert the alias record to a dictionary
+email_dict = alias_df.set_index('Cost_Center')['UD_Email'].to_dict()
+# get the cost centers to iterate through from the alias dataframe; make it a list
+cost_center_list = alias_df['Cost_Center'].values.tolist()
+
+x = 0
+#alias list is a list of all cost centers from MasterAliasRecord
+for line in cost_center_list:
+    print(line)
+    # variable cost_center be what the cost center is for this iteration
+    cost_center = line
+    print(cost_center)
+    # try and except block is used because not every cost center has a Unit Director email, without
+    #   the try and except block it will throw exception error when one of these are encountered
+    try:
+        #cost_center = str(cost_center)
+        # initialize variable that is email address which is a found from the email dictionary object
+        email = email_dict.get(cost_center)
+        print('The email address is: ')
+        print(email)
+    except KeyError:
+        # If there is no UD Email associated with that cost center, just print it to console
+        print('There is no email address for: ') 
+        print(cost_center)
+    # edu_data is the dataframe of all education data but filtered by the cost center for this iteration
+
+    test.loc[test['Cost Center'] == cost_center]
+
+    #edu_data = test['Cost Center'] ==  cost_center
+    #edu_data = test[edu_data]
+    x = x + 1
+
+
+#pd.Series(alias_df.UD_Email.values, index=alias_df.Cost_Center).to_dict()
+#email_dict = alias_df.set_index('Cost_Center').to_dict()
+#alias_df = alias_df.set_index('Cost_Center')
+#alias_df = alias_df.reset_index()
+
+#pivotData = pd.pivot_table(edu_hr_comb, values='eduScore', index=['Unit', 'Name_x', 'Cost Center',  'Title'], aggfunc=np.sum)
 #pivotData.to_excel(test_path)
 #pivotData['eduScore'] = pivotData['eduScore'].astype(int)
 #pivotData['corrEdu'] = pivotData.apply (lambda row: intToDegree(row), axis=1)
 #pivotData = pivotData.drop(columns=['eduScore'])
 
-combData2['eduScore'] = combData2['eduScore'].astype(int)
-
-combData2['corrEdu'] = combData2.apply (lambda row: intToDegree(row), axis=1)
-combData2 = combData2.drop(columns=['eduScore'])
-
-
-
-combData2.to_excel(test_path)
-
-test = pd.read_excel(test_path)
-test = test[['Cost Center', 'Unit', 'Name_x', 'Title', 'ID', 'corrEdu',]]
-test['Cost Center'] = test['Cost Center'].astype(str)
-test['Cost Center'] = test['Cost Center'].str[:5]
-test['Cost Center'] = test['Cost Center'].astype(int)
-test.to_excel(test_path)
-
-alias_df = pd.read_excel(master_alias_path, 'MainAlias')
-alias_df = alias_df[['Cost_Center', 'UD_Email']]
-#alias_df = alias_df.set_index('Cost_Center')
-#alias_df = alias_df.reset_index()
-#**** The following line is the key to getting the dictionary to initialize without an index!!!!!!
-email_dict = alias_df.set_index('Cost_Center')['UD_Email'].to_dict()
-#pd.Series(alias_df.UD_Email.values, index=alias_df.Cost_Center).to_dict()
-#email_dict = alias_df.set_index('Cost_Center').to_dict()
-
-alias_list = alias_df['Cost_Center'].values.tolist()
-
-
-x = 0
-for line in alias_list:
-    print(line)
-    cost_center = line
-    print(cost_center)
-    try:
-        #cost_center = str(cost_center)
-        email = email_dict.get(cost_center)
-        print('The email address is: ')
-        print(email)
-    except KeyError:
-        print('There is no email address for: ') 
-        print(cost_center)
-    edu_data = test['Cost Center'] ==  cost_center
-    edu_data = test[edu_data]
-    print(edu_data)
-    x = x + 1
-
-
+#pivotData = pd.pivot_table(edu_hr_comb, values='eduScore', index =['Name_x', 'Unit', 'Title'], aggfunc=np.sum)
