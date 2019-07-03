@@ -1,0 +1,186 @@
+import pandas as pd
+import os
+from functools import reduce
+import string
+import numpy as np
+import smtplib,ssl
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email.mime.text import MIMEText
+from email.utils import formatdate
+from email import encoders
+import re
+
+
+edu_data_path = os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'rnEducation.xls')
+hr_data_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'hrReport.xls')
+test_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'testData.xlsx')
+tempPat =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'tempFile.xlsx')
+master_alias_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'MasterAlias.xlsx')
+
+#edu_data_path = os.path.join('C:\\', 'Users', 'Ethan', 'OneDrive', 'Desktop', 'testData', 'rnEducation.xls')
+#hr_data_path =os.path.join('C:\\', 'Users', 'Ethan', 'OneDrive', 'Desktop', 'testData', 'hrReport.xls')
+#test_path =os.path.join('C:\\', 'Users', 'Ethan', 'OneDrive', 'Desktop', 'testData', 'testData.xlsx')
+
+eduDict = {
+'Advanced Practice Nurse': 0,
+'Associate Degree -Nursing': 10,
+'Associate of Arts Degree - Non-Nursing': 0,
+'Associate of Science Degree - Non-Nursing': 0,
+'Bachelors of Art':	0,
+'Bachelors of Bus Admin': 0,
+'Bachelors Science': 0,
+'Bachelors Science Nursing': 100,
+'Certified Nurse Practitioner':	0,
+'Clincal Nurse Specialist':	100,
+'Diploma - RN':	1,
+'Doctor of Education': 0,
+'Doctor of Nursing Practice': 10000,
+'Doctor of Nursing Practice - Candidate': 0,
+'Doctor of Oriental Medicine': 0,
+'Doctor of Oriental Medicine - Candidate': 0,
+'Doctor of Philosophy - Nursing': 10000,
+'Doctor of Philosophy - Other Discipline':	0,
+'Doctor of Philosophy (nursing) - Candidate': 0,
+'Doctor of Philosophy (other) - Candidate':	0,
+'Licensed Practical Nurse':	0,
+'Master Public Health Nursing':	1000,
+'Masters Business Administration': 0,
+'Masters Degree - Other': 0,
+'Masters of Arts': 0,
+'Masters Public Health': 0,
+'Masters Science': 0,
+'Masters Science Nursing': 1000,
+'Nurse Practitioner Specialist': 1000,
+'Other - Foreign RN Education':	0
+}
+
+def intToDegree(row):
+    if 10 > row['eduScore'] > 0 :
+        val = 'Diploma'
+    elif 100 > row['eduScore'] > 9:
+        val = 'ADN'
+    elif 1000 > row['eduScore'] >99:
+        val = 'BSN'
+    elif 10000 > row['eduScore'] >999:
+        val = 'MSN'
+    elif row['eduScore'] > 9999:
+        val = 'PhD or DNP'
+    else: 
+        val = 'Nursing Foreign or Unknown Degree'
+    return val;
+
+def inProgressCorrection(row):
+    if row['Degree Category'] == 'In Progress':
+        val = 0
+    else: 
+        val = 1
+    return val;
+
+
+def send_mail(send_from,send_to,subject,text,files,server,port,username='',password='',isTls=True):
+    msg = MIMEMultipart()
+    msg['From'] = send_from
+    msg['To'] = send_to
+    msg['Date'] = formatdate(localtime = True)
+    msg['Subject'] = subject
+    msg.attach(MIMEText(text))
+
+    part = MIMEBase('application', "octet-stream")
+    part.set_payload(open(files, "rb").read())
+    encoders.encode_base64(part)
+    part.add_header('Content-Disposition', 'attachment; filename="testData.xlsx"')
+    msg.attach(part)
+
+    #context = ssl.SSLContext(ssl.PROTOCOL_SSLv3)
+    #SSL connection only working on Python 3+
+    smtp = smtplib.SMTP(server, port)
+    if isTls:
+        smtp.starttls()
+    #smtp.login('ejmooney@salud.unm.edu', 'Monique81')
+    smtp.sendmail(send_from, send_to, msg.as_string())
+    smtp.quit()
+
+eduData = pd.read_excel(edu_data_path)
+hrData = pd.read_excel(hr_data_path)
+
+#Need to change EEID to ID in HR report
+
+combData = reduce(lambda x,y: pd.merge(x,y, on='ID', how='left'), [hrData, eduData])
+
+
+combData = combData[['Cost Center', 'ID', 'Unit', 'Name_x', 'Title',  'Description', 'Degree Category']]
+combData = combData.dropna(subset=['Description'])
+combData.to_excel(test_path)
+
+combData['multInProgr'] = combData.apply (lambda row: inProgressCorrection(row), axis=1)
+combData.to_excel(test_path)
+
+combData[['Title', 'Cost Center', 'ID']] = combData[['Title', 'Cost Center', 'ID']].astype(str)
+combData.to_excel(test_path)
+#combData = combData[combData['Title'].str.contains('Supv')]
+combData = combData[~combData['Title'].str.contains('LPN')]
+combData.to_excel(test_path)
+combData['eduScore']= combData['Description'].map(eduDict)
+combData.to_excel(test_path)
+
+combData['eduScore'] = combData['eduScore'] * combData['multInProgr']
+combData.to_excel(test_path)
+
+#pivotData = pd.pivot_table(combData, values='eduScore', index =['Name_x', 'Unit', 'Title'], aggfunc=np.sum)
+
+combData2= combData.groupby(['Name_x', 'Title', 'Cost Center', 'Unit', 'ID']).sum().reset_index()
+
+#pivotData = pd.pivot_table(combData, values='eduScore', index=['Unit', 'Name_x', 'Cost Center',  'Title'], aggfunc=np.sum)
+#pivotData.to_excel(test_path)
+#pivotData['eduScore'] = pivotData['eduScore'].astype(int)
+#pivotData['corrEdu'] = pivotData.apply (lambda row: intToDegree(row), axis=1)
+#pivotData = pivotData.drop(columns=['eduScore'])
+
+combData2['eduScore'] = combData2['eduScore'].astype(int)
+
+combData2['corrEdu'] = combData2.apply (lambda row: intToDegree(row), axis=1)
+combData2 = combData2.drop(columns=['eduScore'])
+
+
+
+combData2.to_excel(test_path)
+
+test = pd.read_excel(test_path)
+test = test[['Cost Center', 'Unit', 'Name_x', 'Title', 'ID', 'corrEdu',]]
+test['Cost Center'] = test['Cost Center'].astype(str)
+test['Cost Center'] = test['Cost Center'].str[:5]
+test['Cost Center'] = test['Cost Center'].astype(int)
+test.to_excel(test_path)
+
+alias_df = pd.read_excel(master_alias_path, 'MainAlias')
+alias_df = alias_df[['Cost_Center', 'UD_Email']]
+#alias_df = alias_df.set_index('Cost_Center')
+#alias_df = alias_df.reset_index()
+#**** The following line is the key to getting the dictionary to initialize without an index!!!!!!
+email_dict = alias_df.set_index('Cost_Center')['UD_Email'].to_dict()
+#pd.Series(alias_df.UD_Email.values, index=alias_df.Cost_Center).to_dict()
+#email_dict = alias_df.set_index('Cost_Center').to_dict()
+
+alias_list = alias_df['Cost_Center'].values.tolist()
+
+
+x = 0
+for line in alias_list:
+    print(line)
+    cost_center = line
+    print(cost_center)
+    try:
+        #cost_center = str(cost_center)
+        email = email_dict.get(cost_center)
+        print('The email address is: ')
+        print(email)
+    except KeyError:
+        print('There is no email address for: ') 
+        print(cost_center)
+    edu_data = test['Cost Center'] ==  cost_center
+    edu_data = test[edu_data]
+    print(edu_data)
+    x = x + 1
+
+
