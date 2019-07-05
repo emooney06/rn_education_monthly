@@ -3,6 +3,7 @@ import os
 from functools import reduce
 import string
 import numpy as np
+import collections
 import smtplib,ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -12,7 +13,6 @@ from email import encoders
 import re
 from datetime import datetime
 
-outlook = win32.Dispatch('outlook.application')
 
 edu_data_path = os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'rnEducation.xls')
 hr_data_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'hrReport.xls')
@@ -80,56 +80,6 @@ def inProgressCorrection(row):
         val = 1
     return val;
 
-def send_mail(send_from,send_to,subject,username='',password='', isTls=True):
-    msg = MIMEMultipart()
-    msg['From'] = send_from
-    msg['To'] = send_to
-    msg['Date'] = formatdate(localtime = True)
-    msg['Subject'] = subject
-    msg.attach(MIMEText(text))
-
-    part = MIMEBase('application', "octet-stream")
-    part.set_payload(open(files, "rb").read())
-    encoders.encode_base64(part)
-    part.add_header('Content-Disposition', 'attachment; filename="testData.xlsx"')
-    msg.attach(part)
-
-    #context = ssl.SSLContext(ssl.PROTOCOL_SSLv3)
-    #SSL connection only working on Python 3+
-    smtp = smtplib.SMTP('HSCLink.health.unm.edu', 25)
-    if isTls:
-        smtp.starttls()
-    #smtp.login('ejmooney@salud.unm.edu', 'Monique81')
-    smtp.sendmail(send_from, send_to, msg.as_string())
-    smtp.quit()
-
-#def  send_mail2(send_to, ):
-#    TO = send_to
-#    SUBJECT = 'TEST MAIL'
-#    TEXT = 'This is a test of multiple email addressees'
-    
-#    # exchange Sign In
-#    exchange_sender = 'ndnqi@salud.unm.edu'
-#    exchange_passwd = ''
-
-#    server = smtplib.SMTP('HSCLink.health.unm.edu', 25)
-#    #server.connect()
-#    server.ehlo()
-#    server.starttls()
-#    #server.login(exchange_sender, exchange_passwd)
-
-    #BODY = '\r\n'.join(['To: %s' % TO,
-    #                    'From: %s' % exchange_sender,
-    #                    'Subject: %s' % SUBJECT,
-    #                    '', TEXT])
-
-#    try:
-#        server.sendmail(exchange_sender, [TO], BODY)
-#        print ('email sent')
-#    except:
-#        print ('error sending mail')
-
-#    server.quit()
 
 edu_data = pd.read_excel(edu_data_path)
 hr_data = pd.read_excel(hr_data_path)
@@ -178,9 +128,20 @@ edu_hr_comb.to_excel(test_path)
 edu_hr_comb['eduScore'] = edu_hr_comb['eduScore'] * edu_hr_comb['multInProgr']
 edu_hr_comb.to_excel(test_path)
 
+
+
 # group by rows that will be duplicate so the eduScore integer (bit mask) can be summed
-edu_hr_comb2= edu_hr_comb.groupby(['Name_x', 'Title', 'Cost Center', 'Unit', 'ID', 'JOB']).sum().reset_index()
+edu_hr_comb2= edu_hr_comb.groupby(['Name_x', 'Title', 'Cost Center','ID', 'JOB']).sum().reset_index()
 edu_hr_comb2.to_excel(test_path)
+
+
+hr_data = hr_data[['ID', 'Department']]
+hr_data['ID'] = hr_data['ID'].astype(str)
+
+edu_hr_comb2 = reduce(lambda x,y: pd.merge(x,y, on='ID', how='left'), [edu_hr_comb2, hr_data])
+
+
+
 
 
 #edu_hr_comb2['eduScore'] = edu_hr_comb2['eduScore'].astype(int)
@@ -195,7 +156,7 @@ edu_hr_comb2.to_excel(test_path)
 # *** Testing, can change variable name when ready for prod
 test = pd.read_excel(test_path)
 # Reduce the dataframe to columns that are needed now and re-order to make more readable
-test = test[['Cost Center', 'Unit', 'Name_x', 'Title', 'JOB', 'corrEdu',]]
+test = test[['Cost Center', 'Department', 'Name_x', 'Title', 'JOB', 'corrEdu',]]
 # make cost center a string so the left 4 digits can be truncated
 test['Cost Center'] = test['Cost Center'].astype(str)
 # truncate the cost center to the common 5-digit cost center
@@ -239,7 +200,13 @@ for line in cost_center_list:
         print(cost_center)
     # edu_data is the dataframe of all education data but filtered by the cost center for this iteration
     temp_data = test.loc[test['Cost Center'] == cost_center]
+    totals = temp_data['corrEdu'].value_counts()   
+    totals = pd.DataFrame(totals)
+    totals['degree_pct'] = (totals['corrEdu']/totals['corrEdu'].sum()) * 100 
+    totals['degree_pct'] = totals['degree_pct'].round(1)
+    totals['degree_pct'] = (totals['degree_pct'].astype(str)) + '%'
     html1 = temp_data.to_html()
+    html2 = totals.to_html()
 
     # me == my email address
     # you == recipient's email address
@@ -254,7 +221,7 @@ for line in cost_center_list:
 
     # Create the body of the message (a plain-text and an HTML version).
     text = "Hi!\nHow are you?\nHere is the link you wanted:\nhttps://www.python.org"
-    html = html1
+    html = html2 + html1
 
     # Record the MIME types of both parts - text/plain and text/html.
     part1 = MIMEText(text, 'plain')
@@ -277,56 +244,3 @@ for line in cost_center_list:
     x = x + 1
 
 
-#pd.Series(alias_df.UD_Email.values, index=alias_df.Cost_Center).to_dict()
-#email_dict = alias_df.set_index('Cost_Center').to_dict()
-#alias_df = alias_df.set_index('Cost_Center')
-#alias_df = alias_df.reset_index()
-
-#pivotData = pd.pivot_table(edu_hr_comb, values='eduScore', index=['Unit', 'Name_x', 'Cost Center',  'Title'], aggfunc=np.sum)
-#pivotData.to_excel(test_path)
-#pivotData['eduScore'] = pivotData['eduScore'].astype(int)
-#pivotData['corrEdu'] = pivotData.apply (lambda row: intToDegree(row), axis=1)
-#pivotData = pivotData.drop(columns=['eduScore'])
-
-#pivotData = pd.pivot_table(edu_hr_comb, values='eduScore', index =['Name_x', 'Unit', 'Title'], aggfunc=np.sum)
-
-
-
-    #msg = MIMEMultipart('alternative')
-    #TO = email
-    #SUBJECT = 'TEST MAIL'
-    #TEXT = 'This is a test of multiple email addressees'
-    #html = html1
-
-    #part1 = MIMEText(TEXT, 'plain')
-    #part2 = MIMEText(html, 'html')
-
-    ##msg.attach(part1)
-    #msg.attach(part2)
-    ## exchange Sign In
-    #exchange_sender = 'ndnqi@salud.unm.edu'
-    #exchange_passwd = ''
-
-    #server = smtplib.SMTP('HSCLink.health.unm.edu', 25)
-    ##server.connect()
-    #server.ehlo()
-    #server.starttls()
-
-
-    #server.login(exchange_sender, exchange_passwd)
-
-    #html1 = temp_data.to_html()
-    #html = html1
-
-    #'\r\n'.join(['To: %s' % TO,
-    #                    'From: %s' % exchange_sender,
-    #                    'Subject: %s' % SUBJECT,
-    #                    '', TEXT])
-
-    #try:
-    #    server.sendmail(exchange_sender, [TO], BODY)
-    #    print ('email sent')
-    #except:
-    #    print ('error sending mail')
-
-    #server.quit()
