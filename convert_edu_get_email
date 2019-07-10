@@ -12,7 +12,7 @@ from email.utils import formatdate
 from email import encoders
 import re
 from datetime import datetime
-
+import sys
 
 edu_data_path = os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'rnEducation.xls')
 hr_data_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'hrReport.xls')
@@ -20,10 +20,365 @@ test_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'tes
 tempPat =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'tempFile.xlsx')
 master_alias_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'MasterAlias.xlsx')
 edu_job_codes_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'jobCodesMasterList.xlsx')
+duplicates_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'duplicates.xlsx')
 
 #edu_data_path = os.path.join('C:\\', 'Users', 'Ethan', 'OneDrive', 'Desktop', 'testData', 'rnEducation.xls')
 #hr_data_path =os.path.join('C:\\', 'Users', 'Ethan', 'OneDrive', 'Desktop', 'testData', 'hrReport.xls')
 #test_path =os.path.join('C:\\', 'Users', 'Ethan', 'OneDrive', 'Desktop', 'testData', 'testData.xlsx')
+
+def getQtrStr(month_string):
+    if (
+        monthStr == 'Jan'
+        or monthStr == 'JAN'
+        or monthStr == 'jan'
+        or monthStr == 'jAN'
+        or monthStr == 'January'
+        or monthStr == 'january'
+        or monthStr == 'JANUARY'
+        or monthStr == 'jANUARY'
+        or monthStr == '01'
+        or monthStr == '1'
+        ): 
+        qtrStr = '1'
+    elif (
+        monthStr == 'Feb'
+        or monthStr == 'FEB'
+        or monthStr == 'feb'
+        or monthStr == 'fEB'
+        or monthStr == 'February'
+        or monthStr == 'february'
+        or monthStr == 'FEBRUARY'
+        or monthStr == 'fEBRUARY'
+        or monthStr == '02'
+        or monthStr == '2'
+        ):
+        qtrStr = '1'
+    elif (
+        monthStr == 'Mar'
+        or monthStr == 'MAR'
+        or monthStr == 'mar'
+        or monthStr == 'mAR'
+        or monthStr == 'March'
+        or monthStr == 'march'
+        or monthStr == 'MARCH'
+        or monthStr == 'mARCH'
+        or monthStr == '03'
+        or monthStr == '3'
+        ):
+        qtrStr = '1'
+    elif (
+        monthStr == 'Apr'
+        or monthStr == 'APR'
+        or monthStr == 'apr'
+        or monthStr == 'aPR'
+        or monthStr == 'April'
+        or monthStr == 'april'
+        or monthStr == 'APRIL'
+        or monthStr == 'aPRIL'
+        or monthStr == '04'
+        or monthStr == '4'
+        ):
+        qtrStr = '2'
+    elif (
+        monthStr == 'May'
+        or monthStr == 'MAY'
+        or monthStr == 'may'
+        or monthStr == 'mAY'
+        or monthStr == '05'
+        or monthStr == '5'
+        ):
+        qtrStr = '2'
+    elif (
+        monthStr == 'Jun'
+        or monthStr == 'JUN'
+        or monthStr == 'jun'
+        or monthStr == 'jUN'
+        or monthStr == 'June'
+        or monthStr == 'june'
+        or monthStr == 'JUNE'
+        or monthStr == 'jUNE'
+        or monthStr == '06'
+        or monthStr == '6'
+        ):
+        qtrStr = '2'
+    elif (
+        monthStr == 'Jul'
+        or monthStr == 'JUL'
+        or monthStr == 'jul'
+        or monthStr == 'jUL'
+        or monthStr == 'July'
+        or monthStr == 'july'
+        or monthStr == 'JULY'
+        or monthStr == 'jULY'
+        or monthStr == '07'
+        or monthStr == '7'
+        ):
+        qtrStr = '3'
+    elif (
+        monthStr == 'Aug'
+        or monthStr == 'AUG'
+        or monthStr == 'aug'
+        or monthStr == 'aUG'
+        or monthStr == 'August'
+        or monthStr == 'august'
+        or monthStr == 'AUGUST'
+        or monthStr == 'aUGUST'
+        or monthStr == '08'
+        or monthStr == '8'
+        ):
+        qtrStr = '3'
+    elif (
+        monthStr == 'Sep'
+        or monthStr == 'SEP'
+        or monthStr == 'sep'
+        or monthStr == 'sEP'
+        or monthStr == 'September'
+        or monthStr == 'september'
+        or monthStr == 'SEPTEMBER'
+        or monthStr == 'sEPTEMBER'
+        or monthStr == '09'
+        or monthStr == '9'
+        ):
+        qtrStr = '3'
+    elif (
+        monthStr == 'Oct'
+        or monthStr == 'OCT'
+        or monthStr == 'oct'
+        or monthStr == 'oCT'
+        or monthStr == 'October'
+        or monthStr == 'october'
+        or monthStr == 'OCTOBER'
+        or monthStr == 'oCTOBER'
+        or monthStr == '10'
+        ):
+        qtrStr = '4'
+    elif (
+        monthStr == 'Nov'
+        or monthStr == 'NOV'
+        or monthStr == 'nov'
+        or monthStr == 'nOV'
+        or monthStr == 'November'
+        or monthStr == 'november'
+        or monthStr == 'NOVEMBER'
+        or monthStr == 'nOVEMBER'
+        or monthStr == '11'
+        ):
+        qtrStr = '4'
+    elif (
+        monthStr == 'Dec'
+        or monthStr == 'DEC'
+        or monthStr == 'dec'
+        or monthStr == 'dEC'
+        or monthStr == 'December'
+        or monthStr == 'december'
+        or monthStr == 'DECEMBER'
+        or monthStr == 'dECEMBER'
+        or monthStr == '12'
+        ):
+        qtrStr = '4'
+    
+    return qtrStr;
+# this function returns the 2-digit string of numbers for each month (useful in filepaths)
+def getMonthNumStr(month_string):
+     if (
+        monthStr == 'Jan'
+        or monthStr == 'JAN'
+        or monthStr == 'jan'
+        or monthStr == 'jAN'
+        or monthStr == 'January'
+        or monthStr == 'january'
+        or monthStr == 'JANUARY'
+        or monthStr == 'jANUARY'
+        or monthStr == '01'
+        or monthStr == '1'
+        ): 
+        monthNumStr = '01'
+     elif (
+        monthStr == 'Feb'
+        or monthStr == 'FEB'
+        or monthStr == 'feb'
+        or monthStr == 'fEB'
+        or monthStr == 'February'
+        or monthStr == 'february'
+        or monthStr == 'FEBRUARY'
+        or monthStr == 'fEBRUARY'
+        or monthStr == '02'
+        or monthStr == '2'
+        ):
+        monthNumStr = '02'
+     elif (
+        monthStr == 'Mar'
+        or monthStr == 'MAR'
+        or monthStr == 'mar'
+        or monthStr == 'mAR'
+        or monthStr == 'March'
+        or monthStr == 'march'
+        or monthStr == 'MARCH'
+        or monthStr == 'mARCH'
+        or monthStr == '03'
+        or monthStr == '3'
+        ):
+        monthNumStr = '03'
+     elif (
+        monthStr == 'Apr'
+        or monthStr == 'APR'
+        or monthStr == 'apr'
+        or monthStr == 'aPR'
+        or monthStr == 'April'
+        or monthStr == 'april'
+        or monthStr == 'APRIL'
+        or monthStr == 'aPRIL'
+        or monthStr == '04'
+        or monthStr == '4'
+        ):
+        monthNumStr = '04'
+     elif (
+        monthStr == 'May'
+        or monthStr == 'MAY'
+        or monthStr == 'may'
+        or monthStr == 'mAY'
+        or monthStr == '05'
+        or monthStr == '5'
+        ):
+        monthNumStr = '05'
+     elif (
+        monthStr == 'Jun'
+        or monthStr == 'JUN'
+        or monthStr == 'jun'
+        or monthStr == 'jUN'
+        or monthStr == 'June'
+        or monthStr == 'june'
+        or monthStr == 'JUNE'
+        or monthStr == 'jUNE'
+        or monthStr == '06'
+        or monthStr == '6'
+        ):
+        monthNumStr = '06'
+     elif (
+        monthStr == 'Jul'
+        or monthStr == 'JUL'
+        or monthStr == 'jul'
+        or monthStr == 'jUL'
+        or monthStr == 'July'
+        or monthStr == 'july'
+        or monthStr == 'JULY'
+        or monthStr == 'jULY'
+        or monthStr == '07'
+        or monthStr == '7'
+        ):
+        monthNumStr = '07'
+     elif (
+        monthStr == 'Aug'
+        or monthStr == 'AUG'
+        or monthStr == 'aug'
+        or monthStr == 'aUG'
+        or monthStr == 'August'
+        or monthStr == 'august'
+        or monthStr == 'AUGUST'
+        or monthStr == 'aUGUST'
+        or monthStr == '08'
+        or monthStr == '8'
+        ):
+        monthNumStr = '08'
+     elif (
+        monthStr == 'Sep'
+        or monthStr == 'SEP'
+        or monthStr == 'sep'
+        or monthStr == 'sEP'
+        or monthStr == 'September'
+        or monthStr == 'september'
+        or monthStr == 'SEPTEMBER'
+        or monthStr == 'sEPTEMBER'
+        or monthStr == '09'
+        or monthStr == '9'
+        ):
+        monthNumStr = '09'
+     elif (
+        monthStr == 'Oct'
+        or monthStr == 'OCT'
+        or monthStr == 'oct'
+        or monthStr == 'oCT'
+        or monthStr == 'October'
+        or monthStr == 'october'
+        or monthStr == 'OCTOBER'
+        or monthStr == 'oCTOBER'
+        or monthStr == '10'
+        ):
+        monthNumStr = '10'
+     elif (
+        monthStr == 'Nov'
+        or monthStr == 'NOV'
+        or monthStr == 'nov'
+        or monthStr == 'nOV'
+        or monthStr == 'November'
+        or monthStr == 'november'
+        or monthStr == 'NOVEMBER'
+        or monthStr == 'nOVEMBER'
+        or monthStr == '11'
+        ):
+        monthNumStr = '11'
+     elif (
+        monthStr == 'Dec'
+        or monthStr == 'DEC'
+        or monthStr == 'dec'
+        or monthStr == 'dEC'
+        or monthStr == 'December'
+        or monthStr == 'december'
+        or monthStr == 'DECEMBER'
+        or monthStr == 'dECEMBER'
+        or monthStr == '12'
+        ):
+        monthNumStr = '12'
+    
+     return monthNumStr;
+
+
+def checkAnswer(myAnswer):
+    if (
+        myAnswer == 'y' 
+        or myAnswer == 'Y'
+        or myAnswer == 'yes'
+        or myAnswer == 'Yes'
+        or myAnswer == 'YES'
+        or myAnswer == 'YE'
+        or myAnswer == 'Ye'
+        or myAnswer == 'ye'
+        or myAnswer == 'yES'
+        ):
+        myBool = True
+    elif (
+        myAnswer == 'N'
+        or myAnswer == 'n'
+        or myAnswer == 'no'
+        or myAnswer == 'No'
+        or myAnswer == 'NO'
+        or myAnswer == 'nO'):
+        myBool = False
+    else:
+        print('I don\'t understand your answer; please close this window, try again, and input a normal response next time newbie!')
+        quit()
+    return myBool;
+
+#yearStr = str(input(' Enter the year of the data you want:'))
+#monthStr = str(input(' Enter the month of the data you want:'))
+
+#answer_input = str(input('Do you want to test this before you send emails? \n Please input \'yes\' or \'no\', or type \'exit()\' to quit.'))
+
+##print(answerInput)
+#checkedMatrix = checkAnswer(answerInput)
+
+#print(checkedMatrix)
+
+#if answer_input == 'yes':
+#    double_check = str(input('Are you sure you want to send 100+ emails? \n Please input \'yes\' or \'no\', or type \'exit()\' to quit.'))
+#    if double_check == 'no':
+#        answer_input = 'no'
+
+
+
+qtrStr = getQtrStr(monthStr)
+monNumStr = getMonthNumStr(monthStr)
+daysInMonth = getNumDaysInMonth(monNumStr)
 
 eduDict = {
 'Advanced Practice Nurse': 0,
@@ -67,8 +422,10 @@ def intToDegree(row):
         val = 'BSN'
     elif 10000 > row['eduScore'] >999:
         val = 'MSN'
-    elif row['eduScore'] > 9999:
+    elif 100000 > row['eduScore'] > 9999:
         val = 'PhD or DNP'
+    elif row['eduScore'] > 99999:
+        val = 'Missing From Database'
     else: 
         val = 'Nursing Foreign or Unknown Degree'
     return val;
@@ -80,18 +437,17 @@ def inProgressCorrection(row):
         val = 1
     return val;
 
-
 edu_data = pd.read_excel(edu_data_path)
 hr_data = pd.read_excel(hr_data_path)
 edu_job_codes = pd.read_excel(edu_job_codes_path, 'RN_Education')
 
-
 #Need to change EEID to ID in HR report
+hr_data = hr_data.rename(columns = {'EEID':'ID'})
 
 # combine the education data and HR data
 edu_hr_comb = reduce(lambda x,y: pd.merge(x,y, on='ID', how='left'), [hr_data, edu_data])
 # Reduce the set of columns to those columns that are usefule
-edu_hr_comb = edu_hr_comb[['Cost Center', 'ID', 'Unit', 'Name_x', 'JOB', 'Title',  'Description', 'Degree Category']]
+edu_hr_comb = edu_hr_comb[['Cost Center', 'ID', 'Unit', 'Name_x', 'JOB', 'Title',  'Description', 'Degree Category', 'Certification']]
 
 
 exclusion_list = edu_job_codes['excl_job_codes'].tolist()
@@ -99,8 +455,8 @@ exclusion_list = edu_job_codes['excl_job_codes'].tolist()
 #list(set(job_codes_list))
 
 for i in exclusion_list:
-    print('the job code is: ')
-    print(i)
+    #print('the job code is: ')
+    #print(i)
     edu_hr_comb = edu_hr_comb[edu_hr_comb.JOB != i]
 
 #edu_hr_comb = edu_hr_comb.dropna(subset=['Description'])
@@ -121,42 +477,35 @@ edu_hr_comb.to_excel(test_path)
 
 # make any null value in the eduScore column a zero so when it is multiplied by the degree in progress indicator
 #   the product will be zero (indicating no degree was specified.
-edu_hr_comb['eduScore'] = edu_hr_comb['eduScore'].fillna(0)
+edu_hr_comb['eduScore'] = edu_hr_comb['eduScore'].fillna(100000)
+edu_hr_comb['Certification'] = edu_hr_comb['Certification'].fillna('N')
 edu_hr_comb.to_excel(test_path)
 
 # multiply the eduScore and multInProg values to get the adjustment for degrees in progress
 edu_hr_comb['eduScore'] = edu_hr_comb['eduScore'] * edu_hr_comb['multInProgr']
 edu_hr_comb.to_excel(test_path)
 
-
-
 # group by rows that will be duplicate so the eduScore integer (bit mask) can be summed
-edu_hr_comb2= edu_hr_comb.groupby(['Name_x', 'Title', 'Cost Center','ID', 'JOB']).sum().reset_index()
+edu_hr_comb2= edu_hr_comb.groupby(['Name_x', 'Title', 'Cost Center','ID', 'JOB', 'Certification']).sum().reset_index()
 edu_hr_comb2.to_excel(test_path)
 
-
+# Reduce HR data to useful columns
 hr_data = hr_data[['ID', 'Department']]
+# make the ID a string so it can be merged with the other combined data
 hr_data['ID'] = hr_data['ID'].astype(str)
-
+#merge the combined data with hr data again to get the department
 edu_hr_comb2 = reduce(lambda x,y: pd.merge(x,y, on='ID', how='left'), [edu_hr_comb2, hr_data])
-
-
-
 
 
 #edu_hr_comb2['eduScore'] = edu_hr_comb2['eduScore'].astype(int)
 edu_hr_comb2['corrEdu'] = edu_hr_comb2.apply (lambda row: intToDegree(row), axis=1)
 edu_hr_comb2.to_excel(test_path)
 
-# drop the columns the eduScore and multInProgress columns that are no longer needed - this becomes a duplicate 
-# process a few lines later
-#edu_hr_comb2 = edu_hr_comb2.drop(columns=['eduScore', 'multInProgr'])
-#edu_hr_comb2.to_excel(test_path)
-
 # *** Testing, can change variable name when ready for prod
 test = pd.read_excel(test_path)
 # Reduce the dataframe to columns that are needed now and re-order to make more readable
-test = test[['Cost Center', 'Department', 'Name_x', 'Title', 'JOB', 'corrEdu',]]
+test = test[['Cost Center', 'Department', 'Name_x', 'Title', 'corrEdu', 'Certification']]
+test.columns = ['Cost Center', 'Department', 'Name', 'Title', 'Degree', 'Certification']
 # make cost center a string so the left 4 digits can be truncated
 test['Cost Center'] = test['Cost Center'].astype(str)
 # truncate the cost center to the common 5-digit cost center
@@ -165,23 +514,42 @@ test.to_excel(test_path)
 
 # convert cost center back to integer so it can be used to match a list of integer versions of cost center
 test['Cost Center'] = test['Cost Center'].astype(int)
+# drop duplicates that are created having both expired and active certifications (keep last because 'y' is alphabetically after 'E'
+test = test.drop_duplicates(['Cost Center', 'Name'], keep='last')
+test.loc[test.Certification == 'N', 'Certification'] = 'No'
+test.loc[test.Certification == 'Y', 'Certification'] = 'Yes'
+test.loc[test.Certification == 'E', 'Certification'] = 'Expired'
 test.to_excel(test_path)
+
+def create_dict(file_path, sheet_str, key_str, value_str):
+    # main alias sheet from masterAliasRecord to a dataframe
+    alias_df = pd.read_excel(file_path, sheet_str)
+    # limit alias dataframe to cost center and UD Email
+    alias_df = alias_df[[key_str, value_str]]
+    # convert the alias record to a dictionary
+    new_dict = alias_df.set_index(key_str)[value_str].to_dict()
+    return new_dict;
+
+email_dict = create_dict(master_alias_path, 'MainAlias', 'Cost_Center', 'UD_Email')
+
+unit_name_dict = create_dict(master_alias_path, 'MainAlias', 'Cost_Center', 'NCI_Standard_Name')
 
 # main alias sheet from masterAliasRecord to a dataframe
 alias_df = pd.read_excel(master_alias_path, 'MainAlias')
-# limit alias dataframe to cost center and UD Email
-alias_df = alias_df[['Cost_Center', 'UD_Email']]
-# convert the alias record to a dictionary
-email_dict = alias_df.set_index('Cost_Center')['UD_Email'].to_dict()
+    ## limit alias dataframe to cost center and UD Email
+    #alias_df = alias_df[['Cost_Center', 'UD_Email']]
+    ## convert the alias record to a dictionary
+    #email_dict = alias_df.set_index('Cost_Center')['UD_Email'].to_dict()
+
 # get the cost centers to iterate through from the alias dataframe; make it a list
 cost_center_list = alias_df['Cost_Center'].values.tolist()
-
+# initialize a time variable for current month/year for email text
 date_month = datetime.today().strftime('%Y-%m')
 
 x = 0
 #alias list is a list of all cost centers from MasterAliasRecord
 for line in cost_center_list:
-    print(line)
+    #print(line)
     # variable cost_center be what the cost center is for this iteration
     cost_center = line
     str_cost_center = str(cost_center)
@@ -192,45 +560,92 @@ for line in cost_center_list:
         #cost_center = str(cost_center)
         # initialize variable that is email address which is a found from the email dictionary object
         email = email_dict.get(cost_center)
-        print('The email address is: ')
-        print(email)
+        unit_name = unit_name_dict.get(cost_center)
+        #print('The email address is: ')
+        #print(email)
     except KeyError:
         # If there is no UD Email associated with that cost center, just print it to console
         print('There is no email address for: ') 
         print(cost_center)
     # edu_data is the dataframe of all education data but filtered by the cost center for this iteration
     temp_data = test.loc[test['Cost Center'] == cost_center]
-    totals = temp_data['corrEdu'].value_counts()   
-    totals = pd.DataFrame(totals)
-    totals['degree_pct'] = (totals['corrEdu']/totals['corrEdu'].sum()) * 100 
-    totals['degree_pct'] = totals['degree_pct'].round(1)
-    totals['degree_pct'] = (totals['degree_pct'].astype(str)) + '%'
-    html1 = temp_data.to_html()
-    html2 = totals.to_html()
+    edu_totals = temp_data['Degree'].value_counts()   
+    edu_totals = pd.DataFrame(edu_totals)
+    edu_totals['degree_pct'] = (edu_totals['Degree']/edu_totals['Degree'].sum()) * 100 
+    edu_totals['degree_pct'] = edu_totals['degree_pct'].round(1)
+    edu_totals['degree_pct'] = (edu_totals['degree_pct'].astype(str)) + '%'
+    detail_table = temp_data.to_html()
+    edu_table = edu_totals.to_html()
+
+    cert_totals = temp_data['Certification'].value_counts()
+    cert_totals =pd.DataFrame(cert_totals)
+    cert_totals['Certification'] = (cert_totals['Certification']/cert_totals['Certification'].sum()) * 100
+    cert_totals['Certification'] = cert_totals['Certification'].round(1)
+    cert_totals['Certification'] = (cert_totals['Certification'].astype(str)) + '%'
+    cert_table = cert_totals.to_html()
 
     # me == my email address
     # you == recipient's email address
-    me = "ndnqi@salud.unm.edu"
+    me = "ejmooney@salud.unm.edu"
     you = email
 
     # Create message container - the correct MIME type is multipart/alternative.
     msg = MIMEMultipart('alternative')
-    msg['Subject'] = "NDNQI RN Education Data " + date_month + ' ' + str_cost_center
+    msg['Subject'] = "NDNQI RN Education Data " + date_month + ' Unit: ' + unit_name
     msg['From'] = me
     msg['To'] = you
+    msg['Cc'] = 'ndnqi@salud.unm.edu'
 
     # Create the body of the message (a plain-text and an HTML version).
-    text = "Hi!\nHow are you?\nHere is the link you wanted:\nhttps://www.python.org"
-    html = html2 + html1
+    # text = "Hi!\nHow are you?\nHere is the link you wanted:\nhttps://www.python.org\n"
+    greeting = '''\
+    <html> 
+        <head> 
+            <font size='4'> *** This email is a test of a new NDNQI process.  We appreciate any comments or feedback you can provide. *** <br><br>
+            Hello Unit Director,<br><br> This is an automated message from your NDNQI Team at Nursing 
+            Clinical Informatics. Please be advised the the RN educationa and certification data
+            below does not include RN positions which are excluded from NDNQI reporting.  <br><br>Current 
+            exclusion criteria can be found at
+            https://members.nursingquality.org/NDNQIPortal.  You may also email any questions
+            or comments to NDNQI@salud.unm.edu. <br><br>
+            Thank you,<br>
+            Barry Brooks, RN <br>
+            Ethan Mooney, RN, MSN, PCCN<br>
+            Hospital NDNQI Team<br>
+            Nursing Clinical Informatics<br><br><br>
+           </font>
+        </head>
+        <body><font size='4'>RN Education Summary:</font></body>            
+    <html>
+    '''
+
+    cert_title = '''\
+    <html>
+        <head>
+            <font size='4'><br><br> RN Certification Summary:</font>
+        <head>
+    <html>
+    '''
+
+    details_title = '''\
+    <html>
+        <head>
+            <font size='4'><br><br>Education and Certification Details</font>
+        <head>
+    <html>
+    '''
+
+    html = greeting + edu_table + cert_title + cert_table + details_title + detail_table
+
 
     # Record the MIME types of both parts - text/plain and text/html.
-    part1 = MIMEText(text, 'plain')
+    # part1 = MIMEText(text, 'plain')
     part2 = MIMEText(html, 'html')
 
     # Attach parts into message container.
     # According to RFC 2046, the last part of a multipart message, in this case
     # the HTML message, is best and preferred.
-    msg.attach(part1)
+    #msg.attach(part1)
     msg.attach(part2)
 
     # Send the message via local SMTP server.
@@ -239,7 +654,6 @@ for line in cost_center_list:
     # and message to send - here it is sent as one string.
     s.sendmail(me, you, msg.as_string())
     s.quit()
-
 
     x = x + 1
 
