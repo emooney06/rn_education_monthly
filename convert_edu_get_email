@@ -16,11 +16,18 @@ import sys
 
 edu_data_path = os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'rnEducation.xls')
 hr_data_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'hrReport.xls')
+
+#edu_data_path = os.path.join('J:\\', 'NDNQI', 'SourceData', 'RN Education', '2019Q3', 'RN Education 2019-07.xls')
+#hr_data_path =os.path.join('J:\\', 'NDNQI', 'SourceData', 'Nurse Turnover', 'HR Turnover Reports', 'HR Report 2019-07.xls')
+
 test_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'testData.xlsx')
 tempPat =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'tempFile.xlsx')
 master_alias_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'MasterAlias.xlsx')
 edu_job_codes_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'jobCodesMasterList.xlsx')
 duplicates_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'duplicates.xlsx')
+cert_summary_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'certSummaryData.xlsx')
+edu_summary_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'eduSummaryData.xlsx')
+
 
 #edu_data_path = os.path.join('C:\\', 'Users', 'Ethan', 'OneDrive', 'Desktop', 'testData', 'rnEducation.xls')
 #hr_data_path =os.path.join('C:\\', 'Users', 'Ethan', 'OneDrive', 'Desktop', 'testData', 'hrReport.xls')
@@ -359,8 +366,8 @@ def checkAnswer(myAnswer):
         quit()
     return myBool;
 
-#yearStr = str(input(' Enter the year of the data you want:'))
-#monthStr = str(input(' Enter the month of the data you want:'))
+#yearstr = str(input(' enter the year of the data you want:'))
+#monthstr = str(input(' enter the month of the data you want:'))
 
 #answer_input = str(input('Do you want to test this before you send emails? \n Please input \'yes\' or \'no\', or type \'exit()\' to quit.'))
 
@@ -376,9 +383,9 @@ def checkAnswer(myAnswer):
 
 
 
-qtrStr = getQtrStr(monthStr)
-monNumStr = getMonthNumStr(monthStr)
-daysInMonth = getNumDaysInMonth(monNumStr)
+#qtrStr = getQtrStr(monthStr)
+#monNumStr = getMonthNumStr(monthStr)
+#daysInMonth = getNumDaysInMonth(monNumStr)
 
 eduDict = {
 'Advanced Practice Nurse': 0,
@@ -442,7 +449,9 @@ hr_data = pd.read_excel(hr_data_path)
 edu_job_codes = pd.read_excel(edu_job_codes_path, 'RN_Education')
 
 #Need to change EEID to ID in HR report
-hr_data = hr_data.rename(columns = {'EEID':'ID'})
+hr_data = hr_data.rename(columns = {'EE ID':'ID'})
+
+hr_data.to_excel(test_path)
 
 # combine the education data and HR data
 edu_hr_comb = reduce(lambda x,y: pd.merge(x,y, on='ID', how='left'), [hr_data, edu_data])
@@ -521,6 +530,8 @@ test.loc[test.Certification == 'Y', 'Certification'] = 'Yes'
 test.loc[test.Certification == 'E', 'Certification'] = 'Expired'
 test.to_excel(test_path)
 
+print(test)
+
 def create_dict(file_path, sheet_str, key_str, value_str):
     # main alias sheet from masterAliasRecord to a dataframe
     alias_df = pd.read_excel(file_path, sheet_str)
@@ -530,9 +541,50 @@ def create_dict(file_path, sheet_str, key_str, value_str):
     new_dict = alias_df.set_index(key_str)[value_str].to_dict()
     return new_dict;
 
+#create the dictionaries to fill in information needed for the monthly report
 email_dict = create_dict(master_alias_path, 'MainAlias', 'Cost_Center', 'UD_Email')
-
 unit_name_dict = create_dict(master_alias_path, 'MainAlias', 'Cost_Center', 'NCI_Standard_Name')
+NDNQI_Reporting_Name_dict = create_dict(master_alias_path, 'MainAlias', 'Cost_Center', 'NDNQI_Reporting_Unit_Name')
+NDNQI_Unit_Type_dict = create_dict(master_alias_path, 'MainAlias', 'NDNQI_Reporting_Unit_Name', 'NDNQI_Unit_Type_(Monthly)')
+Exec_dict =  create_dict(master_alias_path, 'MainAlias', 'NDNQI_Reporting_Unit_Name', 'Executive_Director')
+
+# map the unit name as it appears on the monthly report based on the cost center
+test['NDNQI Unit Name'] = test['Cost Center'].map(NDNQI_Reporting_Name_dict)
+
+test.to_excel(edu_summary_path)
+#reduce the columns to only data that is needed for education
+
+
+edu_test = test[['NDNQI Unit Name', 'Name', 'Degree']]
+#pivot the data to make the columns each level of education
+test_pivot = edu_test.pivot_table(edu_test, index='NDNQI Unit Name', columns=['Degree'], aggfunc='count')
+#reset the index the dictionaries can be used based on the 'NDNQI Unit name'
+test_pivot = test_pivot.reset_index()
+#map the missing information from the dictionaries
+test_pivot['Exec Director'] = test_pivot['NDNQI Unit Name'].map(Exec_dict)
+test_pivot['NDNQI Unit Type'] = test_pivot['NDNQI Unit Name'].map(NDNQI_Unit_Type_dict)
+#reorder the columns so they match the format of the monthly report
+test_pivot = test_pivot[[('NDNQI Unit Name', ''),('Exec Director', ''), ('NDNQI Unit Type', ''), ('Name', 'Diploma'), ('Name', 'ADN'), ('Name', 'BSN'), ('Name', 'MSN'), ('Name', 'PhD or DNP'), ('Name', 'Nursing Foreign or Unknown Degree'), ('Name', 'Missing From Database')]]
+#insert the column that describes the measure, which is required to be formatted as it is in the monthly report
+test_pivot.insert(3, 'Measure Long Description', '% Direct Care RNs with BSN, MSN, or PhD')
+test_pivot.to_excel(edu_summary_path)
+
+
+
+
+cert_test = test[['NDNQI Unit Name', 'Name', 'Certification']]
+cert_test.to_excel(cert_summary_path)
+cert_pivot = cert_test.pivot_table(cert_test, index='NDNQI Unit Name', columns=['Certification'], aggfunc='count')
+cert_pivot = cert_pivot.reset_index()
+cert_pivot['Exec Director'] = cert_pivot['NDNQI Unit Name'].map(Exec_dict)
+cert_pivot['NDNQI Unit Type'] = cert_pivot['NDNQI Unit Name'].map(NDNQI_Unit_Type_dict)
+cert_pivot.to_excel(cert_summary_path)
+
+cert_pivot = cert_pivot[[('NDNQI Unit Name', ''),('Exec Director', ''), ('NDNQI Unit Type', ''), ('Name', 'Yes'), ('Name', 'No'), ('Name', 'Expired'), ('Name', 'No Expiration Listed')]]
+cert_pivot.insert(3, 'Measure Long Description', '% Direct Care RNs with Specialty Certification')
+cert_pivot.to_excel(cert_summary_path)
+
+
 
 # main alias sheet from masterAliasRecord to a dataframe
 alias_df = pd.read_excel(master_alias_path, 'MainAlias')
@@ -545,6 +597,14 @@ alias_df = pd.read_excel(master_alias_path, 'MainAlias')
 cost_center_list = alias_df['Cost_Center'].values.tolist()
 # initialize a time variable for current month/year for email text
 date_month = datetime.today().strftime('%Y-%m')
+
+
+#########################################
+
+exit()
+
+###########################################
+
 
 x = 0
 #alias list is a list of all cost centers from MasterAliasRecord
@@ -656,5 +716,3 @@ for line in cost_center_list:
     s.quit()
 
     x = x + 1
-
-
