@@ -4,23 +4,28 @@ from functools import reduce
 import string
 import numpy as np
 import collections
+import re
+from datetime import datetime
+import sys
 import smtplib,ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email.utils import formatdate
 from email import encoders
-import re
-from datetime import datetime
-import sys
+
 
 edu_data_path = os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'rnEducation.xls')
 hr_data_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'hrReport.xls')
+
 test_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'testData.xlsx')
 tempPat =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'tempFile.xlsx')
 master_alias_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'MasterAlias.xlsx')
 edu_job_codes_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'jobCodesMasterList.xlsx')
 duplicates_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'duplicates.xlsx')
+cert_summary_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'certSummaryData.xlsx')
+edu_summary_path =os.path.join('C:\\', 'Users', 'ejmooney', 'Desktop', 'testData', 'eduSummaryData.xlsx')
+
 
 #edu_data_path = os.path.join('C:\\', 'Users', 'Ethan', 'OneDrive', 'Desktop', 'testData', 'rnEducation.xls')
 #hr_data_path =os.path.join('C:\\', 'Users', 'Ethan', 'OneDrive', 'Desktop', 'testData', 'hrReport.xls')
@@ -359,8 +364,8 @@ def checkAnswer(myAnswer):
         quit()
     return myBool;
 
-#yearStr = str(input(' Enter the year of the data you want:'))
-#monthStr = str(input(' Enter the month of the data you want:'))
+#yearstr = str(input(' enter the year of the data you want:'))
+#monthstr = str(input(' enter the month of the data you want:'))
 
 #answer_input = str(input('Do you want to test this before you send emails? \n Please input \'yes\' or \'no\', or type \'exit()\' to quit.'))
 
@@ -376,9 +381,9 @@ def checkAnswer(myAnswer):
 
 
 
-qtrStr = getQtrStr(monthStr)
-monNumStr = getMonthNumStr(monthStr)
-daysInMonth = getNumDaysInMonth(monNumStr)
+#qtrStr = getQtrStr(monthStr)
+#monNumStr = getMonthNumStr(monthStr)
+#daysInMonth = getNumDaysInMonth(monNumStr)
 
 eduDict = {
 'Advanced Practice Nurse': 0,
@@ -425,7 +430,7 @@ def intToDegree(row):
     elif 100000 > row['eduScore'] > 9999:
         val = 'PhD or DNP'
     elif row['eduScore'] > 99999:
-        val = 'Missing From Database'
+        val = 'No Ed Record Found'
     else: 
         val = 'Nursing Foreign or Unknown Degree'
     return val;
@@ -442,12 +447,24 @@ hr_data = pd.read_excel(hr_data_path)
 edu_job_codes = pd.read_excel(edu_job_codes_path, 'RN_Education')
 
 #Need to change EEID to ID in HR report
-hr_data = hr_data.rename(columns = {'EEID':'ID'})
+hr_data = hr_data.rename(columns = {'EE ID':'ID'})
+
+hr_data.to_excel(test_path)
+
+edu_data = edu_data[['ID', 'Degree Category', 'Description', 'Certification']]
+
+edu_data.to_excel(test_path)
 
 # combine the education data and HR data
 edu_hr_comb = reduce(lambda x,y: pd.merge(x,y, on='ID', how='left'), [hr_data, edu_data])
+
+edu_hr_comb.to_excel(test_path)
+
+
+
+
 # Reduce the set of columns to those columns that are usefule
-edu_hr_comb = edu_hr_comb[['Cost Center', 'ID', 'Unit', 'Name_x', 'JOB', 'Title',  'Description', 'Degree Category', 'Certification']]
+edu_hr_comb = edu_hr_comb[['Cost Center', 'ID', 'Department', 'Name', 'JOB', 'Title',  'Description', 'Degree Category', 'Certification']]
 
 
 exclusion_list = edu_job_codes['excl_job_codes'].tolist()
@@ -486,7 +503,7 @@ edu_hr_comb['eduScore'] = edu_hr_comb['eduScore'] * edu_hr_comb['multInProgr']
 edu_hr_comb.to_excel(test_path)
 
 # group by rows that will be duplicate so the eduScore integer (bit mask) can be summed
-edu_hr_comb2= edu_hr_comb.groupby(['Name_x', 'Title', 'Cost Center','ID', 'JOB', 'Certification']).sum().reset_index()
+edu_hr_comb2= edu_hr_comb.groupby(['Name', 'Title', 'Cost Center','ID', 'JOB', 'Certification']).sum().reset_index()
 edu_hr_comb2.to_excel(test_path)
 
 # Reduce HR data to useful columns
@@ -504,7 +521,7 @@ edu_hr_comb2.to_excel(test_path)
 # *** Testing, can change variable name when ready for prod
 test = pd.read_excel(test_path)
 # Reduce the dataframe to columns that are needed now and re-order to make more readable
-test = test[['Cost Center', 'Department', 'Name_x', 'Title', 'corrEdu', 'Certification']]
+test = test[['Cost Center', 'Department', 'Name', 'Title', 'corrEdu', 'Certification']]
 test.columns = ['Cost Center', 'Department', 'Name', 'Title', 'Degree', 'Certification']
 # make cost center a string so the left 4 digits can be truncated
 test['Cost Center'] = test['Cost Center'].astype(str)
@@ -521,6 +538,8 @@ test.loc[test.Certification == 'Y', 'Certification'] = 'Yes'
 test.loc[test.Certification == 'E', 'Certification'] = 'Expired'
 test.to_excel(test_path)
 
+print(test)
+
 def create_dict(file_path, sheet_str, key_str, value_str):
     # main alias sheet from masterAliasRecord to a dataframe
     alias_df = pd.read_excel(file_path, sheet_str)
@@ -530,9 +549,52 @@ def create_dict(file_path, sheet_str, key_str, value_str):
     new_dict = alias_df.set_index(key_str)[value_str].to_dict()
     return new_dict;
 
+#create the dictionaries to fill in information needed for the monthly report
 email_dict = create_dict(master_alias_path, 'MainAlias', 'Cost_Center', 'UD_Email')
-
 unit_name_dict = create_dict(master_alias_path, 'MainAlias', 'Cost_Center', 'NCI_Standard_Name')
+NDNQI_Reporting_Name_dict = create_dict(master_alias_path, 'MainAlias', 'Cost_Center', 'NDNQI_Reporting_Unit_Name')
+NDNQI_Unit_Type_dict = create_dict(master_alias_path, 'MainAlias', 'NDNQI_Reporting_Unit_Name', 'NDNQI_Unit_Type_(Monthly)')
+Exec_dict =  create_dict(master_alias_path, 'MainAlias', 'NDNQI_Reporting_Unit_Name', 'Executive_Director')
+
+# map the unit name as it appears on the monthly report based on the cost center
+test['NDNQI Unit Name'] = test['Cost Center'].map(NDNQI_Reporting_Name_dict)
+
+
+
+#reduce the columns to only data that is needed for education
+edu_test = test[['NDNQI Unit Name', 'Name', 'Degree']]
+edu_test.to_excel(edu_summary_path)
+
+#pivot the data to make the columns each level of education
+test_pivot = edu_test.pivot_table(edu_test, index='NDNQI Unit Name', columns=['Degree'], aggfunc='count')
+
+#reset the index the dictionaries can be used based on the 'NDNQI Unit name'
+test_pivot = test_pivot.reset_index()
+#map the missing information from the dictionaries
+test_pivot['Exec Director'] = test_pivot['NDNQI Unit Name'].map(Exec_dict)
+test_pivot['NDNQI Unit Type'] = test_pivot['NDNQI Unit Name'].map(NDNQI_Unit_Type_dict)
+#reorder the columns so they match the format of the monthly report
+test_pivot = test_pivot[[('NDNQI Unit Name', ''),('Exec Director', ''), ('NDNQI Unit Type', ''), ('Name', 'Diploma'), ('Name', 'ADN'), ('Name', 'BSN'), ('Name', 'MSN'), ('Name', 'PhD or DNP'), ('Name', 'Nursing Foreign or Unknown Degree'), ('Name', 'No Ed Record Found')]]
+#insert the column that describes the measure, which is required to be formatted as it is in the monthly report
+test_pivot.insert(3, 'Measure Long Description', '% Direct Care RNs with BSN, MSN, or PhD')
+test_pivot.to_excel(edu_summary_path)
+
+
+
+
+cert_test = test[['NDNQI Unit Name', 'Name', 'Certification']]
+cert_test.to_excel(cert_summary_path)
+cert_pivot = cert_test.pivot_table(cert_test, index='NDNQI Unit Name', columns=['Certification'], aggfunc='count')
+cert_pivot = cert_pivot.reset_index()
+cert_pivot['Exec Director'] = cert_pivot['NDNQI Unit Name'].map(Exec_dict)
+cert_pivot['NDNQI Unit Type'] = cert_pivot['NDNQI Unit Name'].map(NDNQI_Unit_Type_dict)
+cert_pivot.to_excel(cert_summary_path)
+
+cert_pivot = cert_pivot[[('NDNQI Unit Name', ''),('Exec Director', ''), ('NDNQI Unit Type', ''), ('Name', 'Yes'), ('Name', 'No'), ('Name', 'Expired'), ('Name', 'No Expiration Listed')]]
+cert_pivot.insert(3, 'Measure Long Description', '% Direct Care RNs with Specialty Certification')
+cert_pivot.to_excel(cert_summary_path)
+
+
 
 # main alias sheet from masterAliasRecord to a dataframe
 alias_df = pd.read_excel(master_alias_path, 'MainAlias')
@@ -544,7 +606,15 @@ alias_df = pd.read_excel(master_alias_path, 'MainAlias')
 # get the cost centers to iterate through from the alias dataframe; make it a list
 cost_center_list = alias_df['Cost_Center'].values.tolist()
 # initialize a time variable for current month/year for email text
+global date_month
 date_month = datetime.today().strftime('%Y-%m')
+
+
+#########################################
+
+#exit()
+
+###########################################
 
 x = 0
 #alias list is a list of all cost centers from MasterAliasRecord
@@ -560,6 +630,7 @@ for line in cost_center_list:
         #cost_center = str(cost_center)
         # initialize variable that is email address which is a found from the email dictionary object
         email = email_dict.get(cost_center)
+        global unit_name
         unit_name = unit_name_dict.get(cost_center)
         #print('The email address is: ')
         #print(email)
@@ -589,26 +660,27 @@ for line in cost_center_list:
     me = "ejmooney@salud.unm.edu"
     you = email
 
-    # Create message container - the correct MIME type is multipart/alternative.
+    # create message container - the correct mime type is multipart/alternative.
     msg = MIMEMultipart('alternative')
-    msg['Subject'] = "NDNQI RN Education Data " + date_month + ' Unit: ' + unit_name
-    msg['From'] = me
-    msg['To'] = you
-    msg['Cc'] = 'ndnqi@salud.unm.edu'
+    msg['subject'] = "*Testing* NDNQI RN Education Data " + date_month + ' Unit: ' + unit_name
+    msg['from'] = me
+    msg['to'] = you; 'ndnqi@salud.unm.edu'
+    msg['cc'] = 'ndnqi@salud.unm.edu'
 
-    # Create the body of the message (a plain-text and an HTML version).
-    # text = "Hi!\nHow are you?\nHere is the link you wanted:\nhttps://www.python.org\n"
+    # create the body of the message (a plain-text and an html version).
+    # text = "hi!\nhow are you?\nhere is the link you wanted:\nhttps://www.python.org\n"
     greeting = '''\
     <html> 
         <head> 
-            <font size='4'> *** This email is a test of a new NDNQI process.  We appreciate any comments or feedback you can provide. *** <br><br>
-            Hello Unit Director,<br><br> This is an automated message from your NDNQI Team at Nursing 
-            Clinical Informatics. Please be advised the the RN educationa and certification data
-            below does not include RN positions which are excluded from NDNQI reporting.  <br><br>Current 
-            exclusion criteria can be found at
-            https://members.nursingquality.org/NDNQIPortal.  You may also email any questions
-            or comments to NDNQI@salud.unm.edu. <br><br>
-            Thank you,<br>
+            <font size='4'> *** You have been selected to provide feedback on a his email is a test of a new NDNQI process.  We appreciate any comments or feedback you can provide. *** <br><br>
+            Hello Unit Director,<br><br> This is an automated message from your ndnqi team at nursing 
+            clinical informatics. Please be advised the the RN Education and Certification data
+            below does not include RN positions which are excluded from NDNQI reporting of Education and Certification.  <br><br>
+            Current exclusion criteria can be found at
+            https://members.nursingquality.org/ndnqiportal. If you find an employee is missing from the Nurse Recognition Database 
+            after you have verified they entered their data, please submit an IT help ticket.  You may also email any questions
+            or comments to ndnqi@salud.unm.edu. <br><br>
+            Thank You,<br>
             Barry Brooks, RN <br>
             Ethan Mooney, RN, MSN, PCCN<br>
             Hospital NDNQI Team<br>
@@ -635,26 +707,27 @@ for line in cost_center_list:
     <html>
     '''
 
+
+
     html = greeting + edu_table + cert_title + cert_table + details_title + detail_table
 
 
-    # Record the MIME types of both parts - text/plain and text/html.
-    # part1 = MIMEText(text, 'plain')
+    # record the mime types of both parts - text/plain and text/html.
+    # part1 = mimetext(text, 'plain')
     part2 = MIMEText(html, 'html')
 
-    # Attach parts into message container.
-    # According to RFC 2046, the last part of a multipart message, in this case
-    # the HTML message, is best and preferred.
+    # attach parts into message container.
+    # according to rfc 2046, the last part of a multipart message, in this case
+    # the html message, is best and preferred.
     #msg.attach(part1)
     msg.attach(part2)
 
-    # Send the message via local SMTP server.
-    s = smtplib.SMTP('HSCLink.health.unm.edu')
+    # send the message via local smtp server.
+    s = smtplib.SMTP('hsclink.health.unm.edu')
     # sendmail function takes 3 arguments: sender's address, recipient's address
     # and message to send - here it is sent as one string.
     s.sendmail(me, you, msg.as_string())
     s.quit()
-
     x = x + 1
 
 
